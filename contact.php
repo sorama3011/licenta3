@@ -2,8 +2,19 @@
 // Start session
 session_start();
 
-// Include database configuration
-require_once 'auth/db-config.php';
+// Database connection configuration
+$db_host = "localhost";
+$db_name = "gusturi_romanesti";
+$db_user = "root";
+$db_pass = "";
+
+// Establish database connection
+try {
+    $conn = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    die("Eroare de conexiune la baza de date: " . $e->getMessage());
+}
 
 // Initialize variables
 $success = $error = "";
@@ -64,7 +75,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->execute()) {
                 // Log the action if user is logged in
                 if (isset($_SESSION['user_id'])) {
-                    logAction($conn, 'contact_submit', "Formular de contact trimis: " . $formData['subiect']);
+                    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+                    $userId = $_SESSION['user_id'];
+                    $actionDesc = "Formular de contact trimis: " . $formData['subiect'];
+                    
+                    $logStmt = $conn->prepare("
+                        INSERT INTO log_actiuni (utilizator_id, actiune, descriere, ip_address)
+                        VALUES (:user_id, 'contact_submit', :action_desc, :ip)
+                    ");
+                    $logStmt->bindParam(":user_id", $userId);
+                    $logStmt->bindParam(":action_desc", $actionDesc);
+                    $logStmt->bindParam(":ip", $ip);
+                    $logStmt->execute();
                 }
                 
                 $success = "Mesajul a fost trimis cu succes! Vă vom contacta în curând.";
